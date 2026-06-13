@@ -29,14 +29,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build in Rocky Linux 8 container (glibc 2.28)
+      - name: Build in CentOS 7 container (glibc 2.17)
         run: |
-          IMAGE="${{ matrix.os == 'ubuntu-24.04-arm' && 'arm64v8/rockylinux:8' || 'rockylinux:8' }}"
-          docker run --rm -v "$PWD:/build" -w /build "$IMAGE" bash -c '
+          docker run --rm -v "$PWD:/build" -w /build centos:7 bash -c '
             set -e
-            dnf install -y gcc gcc-c++ cmake libcurl-devel openssl-devel pkgconfig git clang
+            # Switch to vault repos (CentOS 7 is EOL)
+            sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/CentOS-Base.repo
+            sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/CentOS-Base.repo
+            sed -i "s|mirrorlist=http|#mirrorlist=http|g" /etc/yum.repos.d/CentOS-Base.repo
+            # Install EPEL and SCL repos
+            yum install -y epel-release centos-release-scl
+            # Fix EPEL and SCL repos to use vault
+            sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/*.repo || true
+            sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/*.repo 2>/dev/null || true
+            sed -i "s|mirrorlist=http|#mirrorlist=http|g" /etc/yum.repos.d/*.repo 2>/dev/null || true
+            # Install build dependencies
+            yum install -y devtoolset-9-gcc devtoolset-9-gcc-c++ cmake3 libcurl-devel openssl-devel pkgconfig git clang
+            ln -sf /usr/bin/cmake3 /usr/bin/cmake
+            # Install Rust
             curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
             . $HOME/.cargo/env
+            # Use modern GCC from SCL
+            source /opt/rh/devtoolset-9/enable
             rustup target add '"${{ matrix.target }}"'
             cargo build --release --target '"${{ matrix.target }}"'
             cd target/'"${{ matrix.target }}"'/release
