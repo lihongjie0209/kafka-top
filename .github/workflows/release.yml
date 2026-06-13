@@ -47,13 +47,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # For Docker-based musl builds: use cross-rs preconfigured musl image
+      # For Docker-based musl builds: use rust:alpine (musl native)
       - name: Build (musl Docker)
         if: contains(matrix.target, 'linux-musl')
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace \
-            ghcr.io/cross-rs/${{ matrix.target }}:main sh -c "
-              cargo build --release --target ${{ matrix.target }}
+            rust:alpine sh -c "
+              apk add --no-cache musl-dev cmake make g++ curl-dev openssl-dev perl zstd-dev pkgconfig &&
+              ZSTD_SYS_USE_PKG_CONFIG=1 cargo build --release --target ${{ matrix.target }}
             "
 
       # For non-musl targets: use host toolchain
