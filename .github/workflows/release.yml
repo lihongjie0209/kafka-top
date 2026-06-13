@@ -39,10 +39,11 @@ jobs:
             sed -i "s|mirrorlist=http|#mirrorlist=http|g" /etc/yum.repos.d/CentOS-Base.repo
             # Install EPEL and SCL repos
             yum install -y epel-release centos-release-scl
-            # Fix EPEL and SCL repos to use vault
-            sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/*.repo || true
-            sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/*.repo 2>/dev/null || true
-            sed -i "s|mirrorlist=http|#mirrorlist=http|g" /etc/yum.repos.d/*.repo 2>/dev/null || true
+            # Fix all repo files (incl. newly installed SCL/EPEL) to use vault
+            sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/*.repo
+            sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/*.repo
+            sed -i "s|^mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/*.repo
+            yum clean all
             # Install build dependencies
             yum install -y devtoolset-9-gcc devtoolset-9-gcc-c++ cmake3 libcurl-devel openssl-devel pkgconfig git clang
             ln -sf /usr/bin/cmake3 /usr/bin/cmake
