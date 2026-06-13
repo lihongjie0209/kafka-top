@@ -45,7 +45,11 @@ jobs:
           echo "/opt/zig-linux-${ARCH}-0.13.0" >> $GITHUB_PATH
 
       - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild --version 0.19.6
+        run: |
+          for i in 1 2 3; do
+            cargo install cargo-zigbuild --version 0.19.6 && break
+            sleep 5
+          done
 
       - name: Build
         run: |
