@@ -19,58 +19,78 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            suffix: ""
             name: kafka-top-x86_64-linux
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            suffix: ""
             name: kafka-top-aarch64-linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build x86_64 in CentOS 7 container (glibc 2.17)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
+      - name: Build in CentOS 7 container (glibc 2.17)
         run: |
           docker run --rm -v "$PWD:/build" -w /build centos:7 bash -c '
             set -e
-            # Switch to vault repos (CentOS 7 is EOL)
+            ARCH=$(uname -m)
+            echo "=== Architecture: $ARCH ==="
+
+            # Fix CentOS-Base.repo to vault (CentOS 7 is EOL)
             sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/CentOS-Base.repo
             sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/CentOS-Base.repo
             sed -i "s|mirrorlist=http|#mirrorlist=http|g" /etc/yum.repos.d/CentOS-Base.repo
+
             # Install EPEL and SCL repos
             yum install -y epel-release centos-release-scl
-            # Fix all repo files (incl. newly installed SCL/EPEL) to use vault
+
+            # Fix all repo files (including newly installed SCL/EPEL) to use vault
             sed -i "s|mirror.centos.org|vault.centos.org|g" /etc/yum.repos.d/*.repo
             sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/*.repo
             sed -i "s|^mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/*.repo
-            yum clean all
-            # Install build dependencies (disable broken SCL repos)
-            yum install -y --disablerepo=centos-sclo-sclo devtoolset-9-gcc devtoolset-9-gcc-c++ cmake3 libcurl-devel openssl-devel pkgconfig git clang clang-libs
-            ln -sf /usr/bin/cmake3 /usr/bin/cmake
-            # Install Rust
-            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
-            . $HOME/.cargo/env
-            # Use modern GCC from SCL (already installed from cache)
-            source /opt/rh/devtoolset-9/enable
-            rustup target add x86_64-unknown-linux-gnu
-            cargo build --release --target x86_64-unknown-linux-gnu
-            cd target/x86_64-unknown-linux-gnu/release
-            tar czf /build/kafka-top-x86_64-linux.tar.gz kafka-top
-          '
 
-      - name: Build aarch64 in Rocky Linux 8 container (glibc 2.28)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          docker run --rm -v "$PWD:/build" -w /build arm64v8/rockylinux:8 bash -c '
-            set -e
-            dnf install -y gcc gcc-c++ cmake libcurl-devel openssl-devel pkgconfig git clang
-            curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
-            . $HOME/.cargo/env
-            rustup target add aarch64-unknown-linux-gnu
-            cargo build --release --target aarch64-unknown-linux-gnu
-            cd target/aarch64-unknown-linux-gnu/release
-            tar czf /build/kafka-top-aarch64-linux.tar.gz kafka-top
+            # On aarch64, SCL repos may need altarch path instead of /centos/
+            if [ "$ARCH" = "aarch64" ]; then
+              echo "=== Fixing SCL repo paths for aarch64 ==="
+              sed -i "s|/centos/7/sclo/|/altarch/7/sclo/|g" /etc/yum.repos.d/CentOS-SCLo*.repo 2>/dev/null || true
+            fi
+
+            yum clean all
+
+            # Install build dependencies
+            # --disablerepo=centos-sclo-sclo avoids the broken community SCL repo
+            yum install -y --disablerepo=centos-sclo-sclo \
+              devtoolset-9-gcc devtoolset-9-gcc-c++ \
+              cmake3 libcurl-devel openssl-devel pkgconfig git \
+              clang clang-libs
+
+            ln -sf /usr/bin/cmake3 /usr/bin/cmake
+
+            # Locate libclang for bindgen (zstd-sys needs it)
+            echo "=== Locating libclang ==="
+            find / -name "libclang*" -type f 2>/dev/null
+            export LIBCLANG_PATH=$(find /usr -name "libclang.so" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+            if [ -z "$LIBCLANG_PATH" ]; then
+              export LIBCLANG_PATH=$(find /usr -name "libclang.so.*" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+            fi
+            echo "LIBCLANG_PATH=$LIBCLANG_PATH"
+
+            # Install Rust
+            curl --proto "=https" --tlsv1.2 --retry 5 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
+            . "$HOME/.cargo/env"
+
+            # Enable devtoolset-9 (modern GCC from SCL)
+            source /opt/rh/devtoolset-9/enable
+            echo "=== Compiler versions ==="
+            gcc --version | head -1
+            g++ --version | head -1
+
+            rustup target add "$ARCH-unknown-linux-gnu"
+            echo "=== Starting cargo build ($ARCH) ==="
+            RUST_BACKTRACE=1 cargo build --release --target "$ARCH-unknown-linux-gnu" 2>&1
+            echo "=== Build complete ==="
+
+            cd "target/$ARCH-unknown-linux-gnu/release"
+            tar czf "/build/${{ matrix.name }}.tar.gz" kafka-top
+            echo "=== Package created ==="
           '
 
       - uses: softprops/action-gh-release@v2
