@@ -44,8 +44,8 @@ jobs:
             sed -i "s|#baseurl=http|baseurl=http|g" /etc/yum.repos.d/*.repo
             sed -i "s|^mirrorlist=|#mirrorlist=|g" /etc/yum.repos.d/*.repo
             yum clean all
-            # Install build dependencies
-            yum install -y devtoolset-9-gcc devtoolset-9-gcc-c++ cmake3 libcurl-devel openssl-devel pkgconfig git clang
+            # Install build dependencies (disable broken sclo-sclo repo)
+            yum install -y --disablerepo=centos-sclo-sclo devtoolset-9-gcc devtoolset-9-gcc-c++ cmake3 libcurl-devel openssl-devel pkgconfig git clang
             ln -sf /usr/bin/cmake3 /usr/bin/cmake
             # Install Rust
             curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
