@@ -57,34 +57,50 @@ jobs:
 
             # Install build dependencies
             # --disablerepo=centos-sclo-sclo avoids the broken community SCL repo
+            # llvm-toolset-7-clang provides clang 7.0 (needed for bindgen in zstd-sys)
+            # The EPEL clang 3.4.2 is too old for modern bindgen
             yum install -y --disablerepo=centos-sclo-sclo \
               devtoolset-9-gcc devtoolset-9-gcc-c++ \
+              llvm-toolset-7-clang \
               cmake3 libcurl-devel openssl-devel pkgconfig git \
-              clang clang-libs
+              clang libzstd-devel
 
             ln -sf /usr/bin/cmake3 /usr/bin/cmake
+
+            # Enable devtoolset-9 (modern GCC 9 for compilation)
+            source /opt/rh/devtoolset-9/enable
+
+            # Enable LLVM toolset 7 if available (modern clang 7.0 for bindgen)
+            # On architectures where it is not available, EPEL clang is installed fallback
+            if [ -f /opt/rh/llvm-toolset-7/enable ]; then
+              source /opt/rh/llvm-toolset-7/enable
+              echo "=== LLVM toolset 7 enabled ==="
+            else
+              echo "=== LLVM toolset 7 not available, using EPEL clang ==="
+            fi
 
             # Locate libclang for bindgen (zstd-sys needs it)
             echo "=== Locating libclang ==="
             find / -name "libclang*" -type f 2>/dev/null
-            export LIBCLANG_PATH=$(find /usr -name "libclang.so" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+            export LIBCLANG_PATH=$(find /opt/rh /usr -name "libclang.so" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
             if [ -z "$LIBCLANG_PATH" ]; then
-              export LIBCLANG_PATH=$(find /usr -name "libclang.so.*" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
+              export LIBCLANG_PATH=$(find /opt/rh /usr -name "libclang.so.*" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null)
             fi
             echo "LIBCLANG_PATH=$LIBCLANG_PATH"
+
+            echo "=== Compiler versions ==="
+            gcc --version | head -1
+            g++ --version | head -1
+            clang --version | head -1
 
             # Install Rust
             curl --proto "=https" --tlsv1.2 --retry 5 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable -q
             . "$HOME/.cargo/env"
 
-            # Enable devtoolset-9 (modern GCC from SCL)
-            source /opt/rh/devtoolset-9/enable
-            echo "=== Compiler versions ==="
-            gcc --version | head -1
-            g++ --version | head -1
-
             rustup target add "$ARCH-unknown-linux-gnu"
             echo "=== Starting cargo build ($ARCH) ==="
+            # Use system zstd if available (via pkg-config) to speed up build
+            export ZSTD_SYS_USE_PKG_CONFIG=1
             RUST_BACKTRACE=1 cargo build --release --target "$ARCH-unknown-linux-gnu" 2>&1
             echo "=== Build complete ==="
 
