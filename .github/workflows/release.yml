@@ -17,13 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+          - os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
             suffix: ""
             name: kafka-top-x86_64-linux
 
           - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-musl
+            target: aarch64-unknown-linux-gnu
             suffix: ""
             name: kafka-top-aarch64-linux
 
@@ -47,24 +47,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # For Docker-based musl builds: use rust:alpine (musl native)
-      - name: Build (musl Docker)
-        if: contains(matrix.target, 'linux-musl')
-        run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace \
-            rust:alpine sh -c "
-              apk add --no-cache musl-dev cmake make g++ curl-dev openssl-dev perl zstd-dev pkgconfig &&
-              ZSTD_SYS_USE_PKG_CONFIG=1 cargo build --release --target ${{ matrix.target }}
-            "
-
-      # For non-musl targets: use host toolchain
       - uses: dtolnay/rust-toolchain@stable
-        if: ${{ !contains(matrix.target, 'linux-musl') }}
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build (host)
-        if: ${{ !contains(matrix.target, 'linux-musl') }}
+      - name: Install system dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package
