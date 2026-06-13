@@ -47,9 +47,20 @@ jobs:
       - name: Install cargo-zigbuild
         run: cargo install cargo-zigbuild --version 0.19.6
 
+      - name: Debug include paths
+        run: |
+          echo "=== curl/curl.h locations ==="
+          find /usr/include -name "curl.h" 2>/dev/null || true
+          echo "=== /usr/include/curl ==="
+          ls -la /usr/include/curl 2>/dev/null || echo "not found"
+          echo "=== /usr/include/$(uname -m)-linux-gnu/curl ==="
+          ls -la /usr/include/$(uname -m)-linux-gnu/curl 2>/dev/null || echo "not found"
+
       - name: Build
         run: |
-          CFLAGS="-idirafter /usr/include" CXXFLAGS="-idirafter /usr/include" \
+          MULTIARCH=$(uname -m)-linux-gnu
+          CFLAGS="-idirafter /usr/include/${MULTIARCH} -idirafter /usr/include" \
+          CXXFLAGS="-idirafter /usr/include/${MULTIARCH} -idirafter /usr/include" \
             cargo zigbuild --release --target ${{ matrix.target }}
 
       - name: Package
