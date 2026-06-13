@@ -18,10 +18,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-gnu.2.17
             name: kafka-top-x86_64-linux
           - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-gnu.2.17
             name: kafka-top-aarch64-linux
     runs-on: ${{ matrix.os }}
     steps:
@@ -39,11 +39,11 @@ jobs:
       - name: Install zig
         run: |
           ARCH=$(uname -m)
-          curl -L "https://ziglang.org/download/0.14.0/zig-linux-${ARCH}-0.14.0.tar.xz" | sudo tar xJ -C /opt
-          echo "/opt/zig-linux-${ARCH}-0.14.0" >> $GITHUB_PATH
+          curl -L "https://ziglang.org/download/0.13.0/zig-linux-${ARCH}-0.13.0.tar.xz" | sudo tar xJ -C /opt
+          echo "/opt/zig-linux-${ARCH}-0.13.0" >> $GITHUB_PATH
 
       - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild
+        run: cargo install cargo-zigbuild --version 0.19.6
 
       - name: Build
         run: cargo zigbuild --release --target ${{ matrix.target }}
@@ -57,7 +57,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.name }}.tar.gz
-          generate_release_notes: ${{ matrix.target == 'x86_64-unknown-linux-gnu' }}
+          generate_release_notes: ${{ matrix.name == 'kafka-top-x86_64-linux' }}
 
   build-macos:
     strategy:
