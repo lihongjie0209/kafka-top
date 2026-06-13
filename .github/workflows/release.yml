@@ -48,7 +48,9 @@ jobs:
         run: cargo install cargo-zigbuild --version 0.19.6
 
       - name: Build
-        run: cargo zigbuild --release --target ${{ matrix.target }}
+        run: |
+          CFLAGS="-idirafter /usr/include" CXXFLAGS="-idirafter /usr/include" \
+            cargo zigbuild --release --target ${{ matrix.target }}
 
       - name: Package
         shell: bash
