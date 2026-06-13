@@ -47,15 +47,6 @@ jobs:
       - name: Install cargo-zigbuild
         run: cargo install cargo-zigbuild --version 0.19.6
 
-      - name: Debug include paths
-        run: |
-          echo "=== curl/curl.h locations ==="
-          find /usr/include -name "curl.h" 2>/dev/null || true
-          echo "=== /usr/include/curl ==="
-          ls -la /usr/include/curl 2>/dev/null || echo "not found"
-          echo "=== /usr/include/$(uname -m)-linux-gnu/curl ==="
-          ls -la /usr/include/$(uname -m)-linux-gnu/curl 2>/dev/null || echo "not found"
-
       - name: Build
         run: |
           MULTIARCH=$(uname -m)-linux-gnu
@@ -66,7 +57,7 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          cd "target/${{ matrix.target }}/release"
+          cd "target/${{ matrix.rust_target }}/release"
           tar czf "../../../${{ matrix.name }}.tar.gz" kafka-top
 
       - uses: softprops/action-gh-release@v2
