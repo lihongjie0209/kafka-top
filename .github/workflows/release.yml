@@ -34,7 +34,9 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake pkg-config libcurl4-openssl-dev
+          sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev
+          # Verify curl headers are installed
+          ls /usr/include/curl/curl.h
 
       - name: Install zig
         run: |
@@ -47,6 +49,11 @@ jobs:
 
       - name: Build with glibc 2.17 compatibility
         run: |
+          # zig cc does not search system include paths by default,
+          # so we need to pass them explicitly via CFLAGS
+          MULTIARCH_DIR="$(uname -m)-linux-gnu"
+          export CFLAGS="-I/usr/include -I/usr/include/${MULTIARCH_DIR}"
+          export CXXFLAGS="-I/usr/include -I/usr/include/${MULTIARCH_DIR}"
           GLIBC_TARGET="${{ matrix.target }}.2.17"
           cargo zigbuild --release --target "$GLIBC_TARGET"
 
