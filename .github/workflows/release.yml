@@ -53,7 +53,7 @@ jobs:
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace \
             rust:alpine sh -c "
-              apk add --no-cache musl-dev cmake make g++ curl-dev openssl-dev perl &&
+              apk add --no-cache musl-dev cmake make g++ curl-dev openssl-dev perl clang-dev &&
               cargo build --release --target ${{ matrix.target }}
             "
 
