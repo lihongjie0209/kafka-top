@@ -35,12 +35,6 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev
-          # zig cc needs explicit -I flags to find system headers.
-          # Only add the multiarch dir, NOT /usr/include, because the
-          # broader path breaks zig's libc++ header search order.
-          MULTIARCH_DIR="$(uname -m)-linux-gnu"
-          echo "CFLAGS=-I/usr/include/${MULTIARCH_DIR}" >> $GITHUB_ENV
-          echo "CXXFLAGS=-I/usr/include/${MULTIARCH_DIR}" >> $GITHUB_ENV
 
       - name: Install zig
         run: |
@@ -51,16 +45,13 @@ jobs:
       - name: Install cargo-zigbuild
         run: cargo install cargo-zigbuild
 
-      - name: Build with glibc 2.17 compatibility
-        run: |
-          GLIBC_TARGET="${{ matrix.target }}.2.17"
-          cargo zigbuild --release --target "$GLIBC_TARGET"
+      - name: Build
+        run: cargo zigbuild --release --target ${{ matrix.target }}
 
       - name: Package
         shell: bash
         run: |
-          GLIBC_TARGET="${{ matrix.target }}.2.17"
-          cd "target/$GLIBC_TARGET/release"
+          cd "target/${{ matrix.target }}/release"
           tar czf "../../../${{ matrix.name }}.tar.gz" kafka-top
 
       - uses: softprops/action-gh-release@v2
