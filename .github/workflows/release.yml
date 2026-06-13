@@ -47,14 +47,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # For Docker-based musl builds: use rust:alpine image
+      # For Docker-based musl builds: use cross-rs preconfigured musl image
       - name: Build (musl Docker)
         if: contains(matrix.target, 'linux-musl')
         run: |
           docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace \
-            rust:alpine sh -c "
-              apk add --no-cache musl-dev cmake make g++ curl-dev openssl-dev perl clang-dev llvm-dev libstdc++ &&
-              export LD_LIBRARY_PATH=\$(find /usr/lib -name 'llvm*' -type d -path '*/lib' | head -1):\$LD_LIBRARY_PATH &&
+            ghcr.io/cross-rs/${{ matrix.target }}:main sh -c "
               cargo build --release --target ${{ matrix.target }}
             "
 
